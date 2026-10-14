@@ -1,13 +1,15 @@
+use eframe::egui::{CentralPanel, Id, IntoAtoms, Ui};
+use eframe::{Frame, egui};
 use std::fmt::format;
-use eframe::{egui, Frame};
-use eframe::egui::{CentralPanel, Id, Ui};
 
 fn main() {
     let optiones = eframe::NativeOptions::default();
     eframe::run_native(
         "Uebung02",
         optiones,
-        Box::new(|_cc| Ok(Box::new(MyApp::default())))).unwrap();
+        Box::new(|_cc| Ok(Box::new(MyApp::default()))),
+    )
+    .unwrap();
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -15,14 +17,14 @@ enum ColorChoice {
     Red,
     Green,
     Blue,
-    Yellow
+    Yellow,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-enum AppMode{
+enum AppMode {
     View,
     Edit,
-    Settings
+    Settings,
 }
 
 pub struct MyApp {
@@ -36,7 +38,7 @@ pub struct MyApp {
 
 impl Default for MyApp {
     fn default() -> Self {
-        Self{
+        Self {
             label: "Start Text".to_string(),
             value: 5.0,
             show_external_information: false,
@@ -48,108 +50,131 @@ impl Default for MyApp {
 }
 
 impl eframe::App for MyApp {
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        egui::Panel::top(Id::new("my_top_panel")).show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.label("Mode");
-                ui.radio_value(&mut self.current_mode, AppMode::View, "View");
-                ui.radio_value(&mut self.current_mode, AppMode::Edit, "Edit");
-                ui.radio_value(&mut self.current_mode, AppMode::Settings, "Settings");
-            })
-        });
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        self.render_menu_bar(ui, frame);
+        self.render_side_panel(ui, frame);
+        self.render_centreal_panel(ui, frame);
+    }
+}
 
-        egui::CentralPanel::default().show(ui, |ui| {
-            ui.heading(format!("Current Mode: {:?}", self.current_mode)); // Show the mode
+impl MyApp {
+    pub fn render_menu_bar(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui::Panel::top("menu_bar").show(ui, |ui| {
+            egui::menu::MenuBar::new().ui(ui, |ui| {
+                ui.menu_button("File", |ui| {
+                    if ui.button("Reset Counter").clicked() {
+                        self.counter = 0;
+                    }
+                    if ui.button("Quit").clicked() {
+                        ui.send_viewport_cmd(egui::ViewportCommand::Close);
+                    }
+                });
+
+                ui.menu_button("Mode", |ui| {
+                    if ui
+                        .radio_value(&mut self.current_mode, AppMode::View, "View")
+                        .clicked()
+                    {
+                        ui.close();
+                    }
+
+                    if ui
+                        .radio_value(&mut self.current_mode, AppMode::Settings, "Settings")
+                        .clicked()
+                    {
+                        ui.close();
+                    }
+
+                    if ui
+                        .radio_value(&mut self.current_mode, AppMode::Edit, "Edit")
+                        .clicked()
+                    {
+                        ui.close();
+                    }
+                });
+
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(format!("Counter: {}", self.counter));
+                })
+            });
+        });
+    }
+
+    pub fn render_side_panel(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui::Panel::left("infp_panel").show(ui, |ui| {
+            ui.heading("Info");
+            ui.label("This panel can hold help text or tool buttons.");
             ui.separator();
 
-            match self.current_mode {
-                AppMode::View => {
-                    ui.label("View Data");
-                    ui.label(format!("Label: {}", self.label));
-                    ui.label(format!("Value: {:.5}", self.value));
+            ui.label(format!("Selected Color: {:?}", self.select_color));
+            if ui.button("Reset Label").clicked() {
+                self.label = String::default();
+            }
+        });
+    }
 
-                    if self.show_external_information {
+    pub fn render_centreal_panel(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ui, |ui| {
+            ui.heading(format!("Mode: {:?}", self.current_mode));
+            ui.separator();
+
+            match self.current_mode{
+                AppMode::View => {
+                    ui.vertical_centered(|ui|{
+                        ui.heading("VIEW DATA")
+                    });
+                    ui.label(format!("Label: {}", self.label));
+                    ui.label(format!("Value: {}", self.value));
+
+                    ui.collapsing("show more", |ui|{
                         ui.label(format!("Counter: {}", self.counter));
                         ui.label(format!("Color: {:?}", self.select_color));
-                    } else {
-                        ui.label("Für mehr Informatione Erweiterte Sicht aktivieren");
-                    }
-
-                    if ui.button("Switch to Edit Mode").clicked() {
-                        self.current_mode = AppMode::Edit;
-                    }
-
-                    let button_response = ui.button("Hover or click me");
-
-                    if button_response.hovered() {
-                        button_response.clone().on_hover_text("Bitte drücke mich");
-                    }
-                    if  button_response.clicked() {
-                        self.label = "Ich würde gedrückt".to_string();
-                    }
-                    if button_response.secondary_clicked() {
-                        self.label ="Wurde mit rechts geklickt".to_string();
-                    }
-
-                }
-
-                AppMode::Edit => {
-                    ui.label("Edit Data");
-
-                    egui::Grid::new("edit_grid").num_columns(2).spacing([10.0,4.0]).show(ui, |ui|{
-                        ui.label("Label:");
-                        ui.text_edit_singleline(& mut self.label);
-
-                        ui.label("Value:");
-                        ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0));
-
-                        ui.label("Counter");
-                        ui.horizontal(|ui|{
-                            if ui.button("+").clicked(){
-                                self.counter += 1
-                            }
-                            if ui.button("-").clicked(){
-                                self.counter -= 1
-                            }
-                            ui.label(format!("Counter: {}", self.counter))
-                        });
-                        ui.end_row();
+                        ui.label(format!("Show Extra Info Setting: {}", self.show_external_information));
                     });
+                }
+                AppMode::Edit => {
+                    ui.heading("EDIT DATA");
 
-                    let sidebar_response = ui
-                        .add(egui::Slider::new(&mut self.value, 0.0..=10.0)
-                            .text("Sidebar mit änderbaren Werten"));
+                    egui::Grid::new("edit_form_grid")
+                        .num_columns(2)
+                        .spacing({[20.0, 8.0]})
+                        .striped(true)
+                        .show(ui, |ui|{
+                            ui.label("Edit Label:"); // Col 1
+                            ui.text_edit_singleline(&mut self.label); // Col 2
+                            ui.end_row();
 
-                    if sidebar_response.dragged(){
-                        self.label ="Slider Bewegt".to_string();
-                    }
+                            ui.label("Adjust Value:"); // Col 1
+                            ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0)); // Col 2
+                            ui.end_row();
 
-                    if sidebar_response.changed(){
-                        println!("Slider Wert geändert")
-                    }
+                            ui.label("Counter:"); // Col 1
+                            ui.horizontal(|ui|{ // Nested layout in grid cell
+                                if ui.button("+").clicked() { self.counter += 1; }
+                                ui.label(format!("{}", self.counter));
+                                if ui.button("-").clicked() { self.counter -= 1; }
+                            }); // Col 2
+                            ui.end_row();
+                        });
                 }
                 AppMode::Settings => {
-                    ui.label("Application Setting");
-                    ui.separator();
+                    ui.heading("Settings");
 
-                    ui.checkbox(&mut self.show_external_information, "Show Advance Information");
-
-                    ui.separator();
-
-                    ui.label("Color Schema");
-                    ui.horizontal(|ui|{
-                        ui.radio_value(&mut self.select_color, ColorChoice::Red, "red");
-                        ui.radio_value(&mut self.select_color, ColorChoice::Green, "green");
-                        ui.radio_value(&mut self.select_color, ColorChoice::Blue, "blue");
-                        ui.radio_value(&mut self.select_color, ColorChoice::Yellow, "yellow");
-                    });
-                    ui.label(format!("Selected Colore: {:?}", self.select_color));
+                    ui.group(|ui|{
+                        ui.checkbox(&mut self.show_external_information, "Show Advanced Info in View");
+                        ui.separator();
+                        ui.label("Color Scheme:");
+                        ui.horizontal(|ui| {
+                            ui.radio_value(&mut self.select_color, ColorChoice::Red, "Red");
+                            ui.radio_value(&mut self.select_color, ColorChoice::Green, "Green");
+                            ui.radio_value(&mut self.select_color, ColorChoice::Blue, "Blue");
+                        });
+                    }); // End group
 
                     ui.separator();
-
-                    if ui.button("Reset").clicked(){
+                    if ui.button("Reset All State").clicked() {
                         *self = MyApp::default();
-                        self.current_mode = AppMode::Settings;
+                        self.current_mode = AppMode::Settings; // Stay in settings after reset
                     }
                 }
             }
